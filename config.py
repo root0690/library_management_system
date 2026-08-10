@@ -14,7 +14,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_HOST = "localhost"
 DB_PORT = 3306
 DB_USER = "root"
-DB_PASSWORD = ""          # <--- WRITE YOUR MYSQL PASSWORD HERE
+DB_PASSWORD = "Root!^06@90$"          # <--- WRITE YOUR MYSQL PASSWORD HERE
 DB_NAME = "library_management"
 
 # Logs and backups
