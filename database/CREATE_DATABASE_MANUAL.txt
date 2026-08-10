@@ -1,0 +1,113 @@
+============================================================
+LIBRARY MANAGEMENT SYSTEM - MANUAL DATABASE CREATION
+============================================================
+
+Follow these steps one by one in your MySQL software
+(MySQL Workbench, phpMyAdmin, or Command Line).
+
+
+--------------------------------------------------
+STEP 1: Create the Database
+--------------------------------------------------
+Copy and run this:
+
+CREATE DATABASE IF NOT EXISTS library_management
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+
+--------------------------------------------------
+STEP 2: Select the Database
+--------------------------------------------------
+Copy and run this:
+
+USE library_management;
+
+
+--------------------------------------------------
+STEP 3: Create USERS table
+--------------------------------------------------
+Copy and run this:
+
+CREATE TABLE users (
+    UserID INT AUTO_INCREMENT PRIMARY KEY,
+    Username VARCHAR(50) NOT NULL UNIQUE,
+    PasswordHash VARCHAR(255) NOT NULL,
+    Role ENUM('Administrator', 'Librarian') NOT NULL,
+    CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--------------------------------------------------
+STEP 4: Create BOOKS table
+--------------------------------------------------
+Copy and run this:
+
+CREATE TABLE books (
+    BookID INT AUTO_INCREMENT PRIMARY KEY,
+    ISBN VARCHAR(20) UNIQUE,
+    Title VARCHAR(255) NOT NULL,
+    Author VARCHAR(150) NOT NULL,
+    Category VARCHAR(100),
+    Quantity INT NOT NULL DEFAULT 1,
+    AvailableQuantity INT NOT NULL DEFAULT 1
+);
+
+
+--------------------------------------------------
+STEP 5: Create STUDENTS table
+--------------------------------------------------
+Copy and run this:
+
+CREATE TABLE students (
+    StudentID INT AUTO_INCREMENT PRIMARY KEY,
+    Name VARCHAR(150) NOT NULL,
+    Department VARCHAR(100),
+    Semester VARCHAR(20),
+    Phone VARCHAR(20)
+);
+
+
+--------------------------------------------------
+STEP 6: Create ISSUES table
+--------------------------------------------------
+Copy and run this:
+
+CREATE TABLE issues (
+    IssueID INT AUTO_INCREMENT PRIMARY KEY,
+    BookID INT NOT NULL,
+    StudentID INT NOT NULL,
+    IssueDate DATE NOT NULL,
+    DueDate DATE NOT NULL,
+    ReturnDate DATE NULL,
+    Fine DECIMAL(10,2) DEFAULT 0.00,
+    Status ENUM('Issued', 'Returned') NOT NULL DEFAULT 'Issued',
+    FOREIGN KEY (BookID) REFERENCES books(BookID),
+    FOREIGN KEY (StudentID) REFERENCES students(StudentID)
+);
+
+
+--------------------------------------------------
+STEP 7: Create AUDITLOGS table
+--------------------------------------------------
+Copy and run this:
+
+CREATE TABLE auditlogs (
+    LogID INT AUTO_INCREMENT PRIMARY KEY,
+    UserID INT NULL,
+    Action VARCHAR(255) NOT NULL,
+    Timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (UserID) REFERENCES users(UserID)
+);
+
+
+============================================================
+After finishing all steps, check if these 5 tables exist:
+- users
+- books
+- students
+- issues
+- auditlogs
+
+When everything is created, reply: "Database ready"
+============================================================
