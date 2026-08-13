@@ -69,15 +69,18 @@ class DashboardWindow(ctk.CTk):
         nav.pack(fill="both", expand=True)
 
         buttons = [
-            ("📚  Books", self.open_books),
-            ("👨‍🎓  Students", self.open_students),
-            ("📤  Issue Book", self.open_issue),
-            ("📥  Return Book", self.open_return),
-            ("📊  Reports", self.open_reports),
-            ("⚙️  Settings", self.open_settings),
+            ("Books", self.open_books),
+            ("Students", self.open_students),
+            ("Issue Book", self.open_issue),
+            ("Return Book", self.open_return),
+            ("Reports", self.open_reports),
+            ("Settings", self.open_settings),
         ]
 
-        # Only Administrator can access Settings fully (we still show it)
+        # Add Users button only for Administrator
+        if self.current_user.get("Role") == "Administrator":
+            buttons.append(("Users", self.open_users))
+
         for i, (text, cmd) in enumerate(buttons):
             btn = ctk.CTkButton(
                 nav, text=text, height=70,
@@ -88,7 +91,7 @@ class DashboardWindow(ctk.CTk):
 
         for i in range(3):
             nav.grid_columnconfigure(i, weight=1)
-        for i in range(2):
+        for i in range(3):
             nav.grid_rowconfigure(i, weight=1)
 
         # Logout
@@ -114,7 +117,7 @@ class DashboardWindow(ctk.CTk):
                 ("Issued", tstats["issued_books"]),
                 ("Students", sstats["total_students"]),
                 ("Overdue", tstats["overdue_books"]),
-                ("Total Fines", f"₹{tstats['total_fines']:.2f}"),
+                ("Total Fines", f"Rs.{tstats['total_fines']:.2f}"),
             ]
 
             for i, (title, value) in enumerate(cards):
@@ -159,10 +162,17 @@ class DashboardWindow(ctk.CTk):
         win = SettingsWindow(self, self.current_user)
         win.grab_set()
 
+    def open_users(self):
+        if self.current_user["Role"] != "Administrator":
+            messagebox.showwarning("Access Denied", "Only Administrator can manage users.")
+            return
+        from gui.users import UsersWindow
+        win = UsersWindow(self, self.current_user)
+        win.grab_set()
+
     def _logout(self):
         log_action(self.current_user["UserID"], f"User '{self.current_user['Username']}' logged out")
         self.destroy()
-        # Re-open login
         from gui.login import open_login
         user = open_login()
         if user:

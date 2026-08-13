@@ -1,10 +1,10 @@
 """
-Settings Window - Backup, Fine Rate, System Info
+Settings Window - Backup, Fine Rate, System Info, User Management
 """
 
 import customtkinter as ctk
-from tkinter import messagebox, filedialog
-import sys, os, shutil
+from tkinter import messagebox
+import sys, os
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -22,7 +22,7 @@ class SettingsWindow(ctk.CTkToplevel):
         super().__init__(parent)
         self.current_user = current_user
         self.title("Settings")
-        self.geometry("480x520")
+        self.geometry("480x560")
         self.resizable(False, False)
         self.grab_set()
         self._build_ui()
@@ -31,40 +31,54 @@ class SettingsWindow(ctk.CTkToplevel):
         frame = ctk.CTkFrame(self)
         frame.pack(padx=20, pady=20, fill="both", expand=True)
 
-        ctk.CTkLabel(frame, text="Settings", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(15, 20))
+        ctk.CTkLabel(frame, text="Settings", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(15, 15))
+
+        # User Management button
+        ctk.CTkButton(
+            frame, text="Manage Users (Add Staff / Change Password)",
+            height=42, command=self._open_users
+        ).pack(fill="x", padx=30, pady=(5, 15))
 
         # Fine rate
-        ctk.CTkLabel(frame, text="Daily Fine Rate (₹)", anchor="w").pack(padx=30, fill="x")
+        ctk.CTkLabel(frame, text="Daily Fine Rate (Rs.)", anchor="w").pack(padx=30, fill="x")
         self.fine_entry = ctk.CTkEntry(frame, height=36)
         self.fine_entry.insert(0, str(DEFAULT_FINE_RATE))
-        self.fine_entry.pack(padx=30, fill="x", pady=(5, 15))
+        self.fine_entry.pack(padx=30, fill="x", pady=(5, 8))
 
-        ctk.CTkLabel(frame, text="Note: Fine rate is currently read from config.py.\nChange the value in config.py and restart the app for permanent change.",
-                     font=ctk.CTkFont(size=11), text_color="gray", justify="left").pack(padx=30, anchor="w")
+        ctk.CTkLabel(
+            frame,
+            text="Note: To permanently change fine rate, edit config.py and restart.",
+            font=ctk.CTkFont(size=11), text_color="gray", justify="left"
+        ).pack(padx=30, anchor="w")
 
         # Backup section
-        ctk.CTkLabel(frame, text="Database Backup", font=ctk.CTkFont(size=15, weight="bold")).pack(pady=(25, 10))
+        ctk.CTkLabel(frame, text="Database Backup", font=ctk.CTkFont(size=15, weight="bold")).pack(pady=(20, 8))
 
         ctk.CTkButton(frame, text="Create Backup (SQL Dump)", height=40,
                       command=self._create_backup).pack(fill="x", padx=30, pady=5)
 
-        ctk.CTkLabel(frame, text=f"Backups are saved in: {BACKUPS_DIR}",
+        ctk.CTkLabel(frame, text=f"Backups folder: backups/",
                      font=ctk.CTkFont(size=11), text_color="gray").pack(padx=30, anchor="w", pady=5)
 
         # System info
-        ctk.CTkLabel(frame, text="System Information", font=ctk.CTkFont(size=15, weight="bold")).pack(pady=(25, 10))
+        ctk.CTkLabel(frame, text="System Information", font=ctk.CTkFont(size=15, weight="bold")).pack(pady=(18, 8))
 
         info = (
             f"Application : {APP_NAME} v{APP_VERSION}\n"
             f"Database    : {DB_NAME} @ {DB_HOST}\n"
             f"User        : {self.current_user['Username']} ({self.current_user['Role']})\n"
             f"Loan Period : {DEFAULT_LOAN_DAYS} days\n"
-            f"Fine Rate   : ₹{DEFAULT_FINE_RATE} per day"
+            f"Fine Rate   : Rs.{DEFAULT_FINE_RATE} per day"
         )
         ctk.CTkLabel(frame, text=info, justify="left", font=ctk.CTkFont(size=13)).pack(padx=30, anchor="w")
 
         ctk.CTkButton(frame, text="Close", height=36, fg_color="gray",
-                      command=self.destroy).pack(pady=20, padx=30, fill="x")
+                      command=self.destroy).pack(pady=18, padx=30, fill="x")
+
+    def _open_users(self):
+        from gui.users import UsersWindow
+        win = UsersWindow(self, self.current_user)
+        win.grab_set()
 
     def _create_backup(self):
         try:
@@ -73,7 +87,6 @@ class SettingsWindow(ctk.CTkToplevel):
             filename = f"backup_{timestamp}.sql"
             filepath = os.path.join(BACKUPS_DIR, filename)
 
-            # Simple data dump
             tables = ["users", "books", "students", "issues", "auditlogs"]
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(f"-- Library Management System Backup\n")
