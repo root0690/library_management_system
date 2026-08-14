@@ -77,3 +77,26 @@ CREATE INDEX idx_auditlogs_timestamp ON auditlogs(Timestamp);
 -- ============================================================
 
 SELECT 'Database and tables created successfully!' AS Message;
+
+-- ============================================================
+-- Audit log immutability (prevent UPDATE and DELETE)
+-- ============================================================
+DELIMITER //
+CREATE TRIGGER IF NOT EXISTS prevent_auditlog_update
+BEFORE UPDATE ON auditlogs
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Audit logs are immutable. UPDATE is not allowed.';
+END//
+DELIMITER ;
+
+DELIMITER //
+CREATE TRIGGER IF NOT EXISTS prevent_auditlog_delete
+BEFORE DELETE ON auditlogs
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Audit logs are immutable. DELETE is not allowed.';
+END//
+DELIMITER ;

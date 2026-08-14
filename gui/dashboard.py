@@ -111,6 +111,7 @@ class DashboardWindow(ctk.CTk):
 
         if self.current_user.get("Role") == "Administrator":
             buttons.append(("Users", self.open_users))
+            buttons.append(("Audit Logs", self.open_audit_logs))
             buttons.append(("Refresh Status", self._refresh_status))
 
         for i, (text, cmd) in enumerate(buttons):
@@ -259,6 +260,16 @@ class DashboardWindow(ctk.CTk):
             return
         from gui.settings import SettingsWindow
         win = SettingsWindow(self, self.current_user)
+        win.grab_set()
+
+    def open_audit_logs(self):
+        if self.current_user["Role"] != "Administrator":
+            messagebox.showwarning("Access Denied", "Only Administrator can view audit logs.")
+            return
+        if not self._require_server():
+            return
+        from gui.audit_logs import AuditLogsWindow
+        win = AuditLogsWindow(self, self.current_user)
         win.grab_set()
 
     def open_users(self):
