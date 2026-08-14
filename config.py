@@ -26,6 +26,9 @@ REPORTS_DIR = os.path.join(BASE_DIR, "reports")
 # Assets
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 LOGO_PATH = os.path.join(ASSETS_DIR, "logo.png")
+LOGO_DISPLAY_PATH = os.path.join(ASSETS_DIR, "logo_display.png")
+ICON_PATH = os.path.join(ASSETS_DIR, "icons", "app_icon.ico")
+ICON_PNG_PATH = os.path.join(ASSETS_DIR, "icons", "icon_64.png")
 
 # Application settings
 APP_NAME = "Library Management System"

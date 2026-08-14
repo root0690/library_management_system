@@ -4,55 +4,83 @@ Login Window - Library Management System
 
 import customtkinter as ctk
 from tkinter import messagebox
+from PIL import Image
 import sys
 import os
 
-# Make sure project root is in path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.auth_service import login, create_default_admin
-from config import APP_NAME, APPEARANCE_MODE, COLOR_THEME
+from config import APP_NAME, APPEARANCE_MODE, COLOR_THEME, LOGO_DISPLAY_PATH, ICON_PATH, ICON_PNG_PATH
+
+
+def set_window_icon(window):
+    """Set application icon on a window (Windows + cross-platform)."""
+    try:
+        if os.path.exists(ICON_PATH):
+            window.iconbitmap(ICON_PATH)
+    except Exception:
+        pass
+    try:
+        if os.path.exists(ICON_PNG_PATH):
+            from PIL import ImageTk
+            img = Image.open(ICON_PNG_PATH)
+            photo = ImageTk.PhotoImage(img)
+            window.iconphoto(True, photo)
+            window._icon_photo = photo  # keep reference
+    except Exception:
+        pass
 
 
 class LoginWindow(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # Appearance
         ctk.set_appearance_mode(APPEARANCE_MODE)
         ctk.set_default_color_theme(COLOR_THEME)
 
         self.title(f"{APP_NAME} - Login")
-        self.geometry("420x380")
+        self.geometry("420x480")
         self.resizable(False, False)
+        set_window_icon(self)
 
-        # Center the window
         self.update_idletasks()
-        width = 420
-        height = 380
+        width, height = 420, 480
         x = (self.winfo_screenwidth() // 2) - (width // 2)
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f"{width}x{height}+{x}+{y}")
 
-        self.current_user = None  # will hold logged-in user info
-
+        self.current_user = None
         self._build_ui()
 
-        # Create default admin on first run
-        create_default_admin()
+        try:
+            create_default_admin()
+        except Exception:
+            pass  # server may be offline
 
     def _build_ui(self):
-        # Main frame
         main_frame = ctk.CTkFrame(self, corner_radius=15)
-        main_frame.pack(padx=30, pady=30, fill="both", expand=True)
+        main_frame.pack(padx=30, pady=25, fill="both", expand=True)
 
-        # Title
+        # Logo
+        if os.path.exists(LOGO_DISPLAY_PATH):
+            try:
+                logo_img = ctk.CTkImage(
+                    light_image=Image.open(LOGO_DISPLAY_PATH),
+                    dark_image=Image.open(LOGO_DISPLAY_PATH),
+                    size=(100, 100)
+                )
+                logo_label = ctk.CTkLabel(main_frame, image=logo_img, text="")
+                logo_label.pack(pady=(18, 8))
+            except Exception:
+                pass
+
         title_label = ctk.CTkLabel(
             main_frame,
             text=APP_NAME,
-            font=ctk.CTkFont(size=22, weight="bold")
+            font=ctk.CTkFont(size=20, weight="bold")
         )
-        title_label.pack(pady=(25, 5))
+        title_label.pack(pady=(0, 4))
 
         subtitle = ctk.CTkLabel(
             main_frame,
@@ -60,50 +88,35 @@ class LoginWindow(ctk.CTk):
             font=ctk.CTkFont(size=13),
             text_color="gray"
         )
-        subtitle.pack(pady=(0, 20))
+        subtitle.pack(pady=(0, 18))
 
-        # Username
         ctk.CTkLabel(main_frame, text="Username", anchor="w").pack(padx=40, fill="x")
         self.username_entry = ctk.CTkEntry(
-            main_frame,
-            placeholder_text="Enter username",
-            height=38
+            main_frame, placeholder_text="Enter username", height=38
         )
-        self.username_entry.pack(padx=40, pady=(5, 15), fill="x")
+        self.username_entry.pack(padx=40, pady=(5, 12), fill="x")
 
-        # Password
         ctk.CTkLabel(main_frame, text="Password", anchor="w").pack(padx=40, fill="x")
         self.password_entry = ctk.CTkEntry(
-            main_frame,
-            placeholder_text="Enter password",
-            show="•",
-            height=38
+            main_frame, placeholder_text="Enter password", show="•", height=38
         )
-        self.password_entry.pack(padx=40, pady=(5, 25), fill="x")
+        self.password_entry.pack(padx=40, pady=(5, 20), fill="x")
 
-        # Login button
         login_btn = ctk.CTkButton(
-            main_frame,
-            text="Login",
-            height=40,
+            main_frame, text="Login", height=40,
             font=ctk.CTkFont(size=14, weight="bold"),
             command=self._on_login
         )
-        login_btn.pack(padx=40, pady=(0, 10), fill="x")
+        login_btn.pack(padx=40, pady=(0, 8), fill="x")
 
-        # Exit button
         exit_btn = ctk.CTkButton(
-            main_frame,
-            text="Exit",
-            height=36,
-            fg_color="transparent",
-            border_width=1,
+            main_frame, text="Exit", height=36,
+            fg_color="transparent", border_width=1,
             text_color=("gray10", "gray90"),
             command=self.destroy
         )
-        exit_btn.pack(padx=40, pady=(0, 20), fill="x")
+        exit_btn.pack(padx=40, pady=(0, 15), fill="x")
 
-        # Bind Enter key
         self.bind("<Return>", lambda event: self._on_login())
         self.username_entry.focus()
 
@@ -139,7 +152,6 @@ class LoginWindow(ctk.CTk):
 
 
 def open_login():
-    """Helper to open the login window and return the logged-in user."""
     app = LoginWindow()
     app.mainloop()
     return app.current_user

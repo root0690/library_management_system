@@ -9,13 +9,30 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import APP_NAME, APPEARANCE_MODE, COLOR_THEME
+from config import APP_NAME, APPEARANCE_MODE, COLOR_THEME, ICON_PATH, ICON_PNG_PATH
 from services.book_service import get_book_stats
 from services.student_service import get_student_stats
 from services.transaction_service import get_transaction_stats
 from services.auth_service import log_action
 from services.user_service import count_librarians
 from database import test_connection, SERVER_ONLINE
+import os
+
+def set_window_icon(window):
+    try:
+        if os.path.exists(ICON_PATH):
+            window.iconbitmap(ICON_PATH)
+    except Exception:
+        pass
+    try:
+        if os.path.exists(ICON_PNG_PATH):
+            from PIL import Image, ImageTk
+            img = Image.open(ICON_PNG_PATH)
+            photo = ImageTk.PhotoImage(img)
+            window.iconphoto(True, photo)
+            window._icon_photo = photo
+    except Exception:
+        pass
 
 
 class DashboardWindow(ctk.CTk):
@@ -30,6 +47,7 @@ class DashboardWindow(ctk.CTk):
         self.title(f"{APP_NAME} - Dashboard")
         self.geometry("1050x680")
         self.minsize(900, 600)
+        set_window_icon(self)
 
         self.update_idletasks()
         w, h = 1050, 680
