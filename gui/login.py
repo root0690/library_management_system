@@ -115,7 +115,16 @@ class LoginWindow(ctk.CTk):
             messagebox.showwarning("Input Error", "Please enter both username and password.")
             return
 
-        user = login(username, password)
+        try:
+            user = login(username, password)
+        except Exception as e:
+            messagebox.showerror(
+                "Server Offline",
+                "Cannot connect to MySQL server.\n\n"
+                "Please start MySQL and try again.\n\n"
+                f"Details: {e}"
+            )
+            return
 
         if user:
             self.current_user = user
@@ -123,8 +132,7 @@ class LoginWindow(ctk.CTk):
                 "Login Successful",
                 f"Welcome, {user['Username']}!\nRole: {user['Role']}"
             )
-            self.destroy()  # close login window
-            # Later we will open the Dashboard here
+            self.destroy()
         else:
             messagebox.showerror("Login Failed", "Invalid username or password.")
             self.password_entry.delete(0, "end")

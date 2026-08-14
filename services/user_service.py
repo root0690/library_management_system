@@ -135,3 +135,26 @@ def change_own_password(user_id: int, old_password: str, new_password: str):
         return True, "Password changed successfully."
     except Exception as e:
         return False, str(e)
+
+
+def count_librarians():
+    """Return number of Librarian accounts."""
+    try:
+        row = execute_query(
+            "SELECT COUNT(*) as cnt FROM users WHERE Role = 'Librarian'",
+            fetchone=True
+        )
+        return row["cnt"] if row else 0
+    except Exception:
+        return 0
+
+
+def count_administrators():
+    try:
+        row = execute_query(
+            "SELECT COUNT(*) as cnt FROM users WHERE Role = 'Administrator'",
+            fetchone=True
+        )
+        return row["cnt"] if row else 0
+    except Exception:
+        return 0
