@@ -27,14 +27,15 @@ class ReturnBookWindow(ctk.CTkToplevel):
         top = ctk.CTkFrame(self)
         top.pack(fill="x", padx=15, pady=10)
 
-        self.search_entry = ctk.CTkEntry(top, placeholder_text="Search by title, student name, or Issue ID...", width=350)
+        self.search_entry = ctk.CTkEntry(
+            top, placeholder_text="Search by title, student name, or Issue ID...", width=350
+        )
         self.search_entry.pack(side="left", padx=(0, 10))
         self.search_entry.bind("<Return>", lambda e: self._refresh())
 
         ctk.CTkButton(top, text="Search", width=80, command=self._refresh).pack(side="left", padx=5)
         ctk.CTkButton(top, text="Refresh", width=80, command=self._refresh).pack(side="left", padx=5)
 
-        # Table of active issues
         table_frame = ctk.CTkFrame(self)
         table_frame.pack(fill="both", expand=True, padx=15, pady=5)
 
@@ -54,23 +55,35 @@ class ReturnBookWindow(ctk.CTkToplevel):
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
         btn_frame.pack(fill="x", padx=15, pady=10)
 
-        ctk.CTkButton(btn_frame, text="Return Selected Book", height=38,
-                      font=ctk.CTkFont(weight="bold"),
-                      command=self._return).pack(side="left", padx=5)
+        ctk.CTkButton(
+            btn_frame, text="Return Selected Book", height=38,
+            font=ctk.CTkFont(weight="bold"),
+            command=self._return
+        ).pack(side="left", padx=5)
         ctk.CTkButton(btn_frame, text="Close", command=self.destroy).pack(side="right", padx=5)
 
     def _refresh(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
-        search = self.search_entry.get()
-        issues = get_active_issues(search if search else None)
-        if issues:
-            for i in issues:
-                overdue = get_overdue_days(str(i["DueDate"]))
-                self.tree.insert("", "end", values=(
-                    i["IssueID"], i["Title"], i["StudentName"],
-                    str(i["IssueDate"]), str(i["DueDate"]), overdue
-                ))
+        try:
+            search = self.search_entry.get()
+            issues = get_active_issues(search if search else None)
+            if issues:
+                for i in issues:
+                    try:
+                        overdue = get_overdue_days(i["DueDate"])
+                    except Exception:
+                        overdue = 0
+                    self.tree.insert("", "end", values=(
+                        i["IssueID"],
+                        i.get("Title", ""),
+                        i.get("StudentName", ""),
+                        str(i.get("IssueDate", "")),
+                        str(i.get("DueDate", "")),
+                        overdue
+                    ))
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load issued books:\n{e}", parent=self)
 
     def _return(self):
         selected = self.tree.selection()
@@ -78,17 +91,43 @@ class ReturnBookWindow(ctk.CTkToplevel):
             messagebox.showwarning("No Selection", "Please select a transaction first.", parent=self)
             return
 
-        issue_id = self.tree.item(selected[0])["values"][0]
-        issue = get_issue_by_id(issue_id)
-        if not issue:
+        try:
+            issue_id = self.tree.item(selected[0])["values"][0]
+            issue_id = int(issue_id)
+        except Exception:
+            messagebox.showerror("Error", "Invalid Issue ID selected.", parent=self)
             return
 
-        fine = calculate_fine(str(issue["DueDate"]), today_str())
-        confirm_msg = f"Return book: {issue['Title']}\nStudent: {issue['StudentName']}\nEstimated Fine: ₹{fine:.2f}\n\nConfirm return?"
+        try:
+            issue = get_issue_by_id(issue_id)
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load transaction:\n{e}", parent=self)
+            return
+
+        if not issue:
+            messagebox.showerror("Error", "Transaction not found.", parent=self)
+            return
+
+        try:
+            fine = calculate_fine(issue["DueDate"], today_str())
+        except Exception:
+            fine = 0.0
+
+        confirm_msg = (
+            f"Return book: {issue.get('Title', '')}\n"
+            f"Student: {issue.get('StudentName', '')}\n"
+            f"Estimated Fine: Rs.{fine:.2f}\n\n"
+            f"Confirm return?"
+        )
         if not messagebox.askyesno("Confirm Return", confirm_msg, parent=self):
             return
 
-        ok, msg, fine_amount = return_book(issue_id, user_id=self.current_user["UserID"])
+        try:
+            ok, msg, fine_amount = return_book(issue_id, user_id=self.current_user["UserID"])
+        except Exception as e:
+            messagebox.showerror("Error", f"Return failed:\n{e}", parent=self)
+            return
+
         if ok:
             messagebox.showinfo("Success", msg, parent=self)
             self._refresh()

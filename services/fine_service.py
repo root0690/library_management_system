@@ -6,16 +6,19 @@ from utils.date_utils import days_between, today_str
 from config import DEFAULT_FINE_RATE
 
 
-def calculate_fine(due_date: str, return_date: str = None, fine_rate: float = None) -> float:
+def calculate_fine(due_date, return_date=None, fine_rate=None) -> float:
     """
-    Fine = Overdue Days × Daily Fine Rate
-    Returns 0 if not overdue.
+    Fine = Overdue Days x Daily Fine Rate
+    Accepts str/date/datetime for due_date and return_date.
     """
     if fine_rate is None:
         fine_rate = DEFAULT_FINE_RATE
 
     check_date = return_date if return_date else today_str()
-    overdue_days = days_between(due_date, check_date)
+    try:
+        overdue_days = days_between(due_date, check_date)
+    except Exception:
+        return 0.0
 
     if overdue_days <= 0:
         return 0.0
@@ -23,7 +26,10 @@ def calculate_fine(due_date: str, return_date: str = None, fine_rate: float = No
     return round(overdue_days * float(fine_rate), 2)
 
 
-def get_overdue_days(due_date: str, return_date: str = None) -> int:
+def get_overdue_days(due_date, return_date=None) -> int:
     check_date = return_date if return_date else today_str()
-    days = days_between(due_date, check_date)
-    return max(0, days)
+    try:
+        days = days_between(due_date, check_date)
+        return max(0, days)
+    except Exception:
+        return 0

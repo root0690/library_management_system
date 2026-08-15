@@ -8,12 +8,26 @@ from services.fine_service import calculate_fine
 from services.auth_service import log_action
 from services.book_service import get_book_by_id
 from services.student_service import get_student_by_id
-from config import DEFAULT_LOAN_DAYS, DEFAULT_FINE_RATE
+from config import DEFAULT_LOAN_DAYS, DEFAULT_FINE_RATE, MAX_BOOKS_PER_STUDENT
+
+
+def count_active_issues_for_student(student_id: int) -> int:
+    """How many books this student currently has (not returned)."""
+    row = execute_query(
+        "SELECT COUNT(*) as cnt FROM issues WHERE StudentID = %s AND Status = 'Issued'",
+        (student_id,),
+        fetchone=True
+    )
+    return int(row["cnt"]) if row else 0
 
 
 def issue_book(student_id, book_id, user_id=None, loan_days=None):
     """
     Issue a book to a student.
+    Rules:
+    - Student and book must exist
+    - Book must have available copies
+    - Student may not have more than MAX_BOOKS_PER_STUDENT active issues
     Returns (success: bool, message: str)
     """
     try:
@@ -33,6 +47,15 @@ def issue_book(student_id, book_id, user_id=None, loan_days=None):
     if book["AvailableQuantity"] <= 0:
         return False, "No copies available for this book."
 
+    # Max 6 books rule
+    active_count = count_active_issues_for_student(student_id)
+    if active_count >= MAX_BOOKS_PER_STUDENT:
+        return False, (
+            f"Student already has {active_count} books issued. "
+            f"Maximum allowed is {MAX_BOOKS_PER_STUDENT}. "
+            f"Please return at least one book first."
+        )
+
     issue_date = today_str()
     due_date = calculate_due_date(issue_date, loan_days or DEFAULT_LOAN_DAYS)
 
@@ -46,7 +69,6 @@ def issue_book(student_id, book_id, user_id=None, loan_days=None):
             commit=True
         )
 
-        # Reduce available quantity
         execute_query(
             "UPDATE books SET AvailableQuantity = AvailableQuantity - 1 WHERE BookID = %s",
             (book_id,),
@@ -59,7 +81,12 @@ def issue_book(student_id, book_id, user_id=None, loan_days=None):
                 f"Book issued: BookID {book_id} to StudentID {student_id} (IssueID: {issue_id})"
             )
 
-        return True, f"Book issued successfully. Due date: {due_date}"
+        remaining = MAX_BOOKS_PER_STUDENT - (active_count + 1)
+        return True, (
+            f"Book issued successfully.\n"
+            f"Due date: {due_date} (1 month loan)\n"
+            f"Student can still borrow {remaining} more book(s)."
+        )
     except Exception as e:
         return False, str(e)
 
@@ -76,7 +103,7 @@ def get_active_issues(search: str = None):
     """
     if search:
         term = f"%{search.strip()}%"
-        query += " AND (b.Title LIKE %s OR s.Name LIKE %s OR i.IssueID LIKE %s)"
+        query += " AND (b.Title LIKE %s OR s.Name LIKE %s OR CAST(i.IssueID AS CHAR) LIKE %s)"
         return execute_query(query + " ORDER BY i.DueDate", (term, term, term), fetchall=True)
     return execute_query(query + " ORDER BY i.DueDate", fetchall=True)
 
@@ -126,7 +153,6 @@ def return_book(issue_id, user_id=None, fine_rate=None):
             commit=True
         )
 
-        # Increase available quantity
         execute_query(
             "UPDATE books SET AvailableQuantity = AvailableQuantity + 1 WHERE BookID = %s",
             (issue["BookID"],),
@@ -136,10 +162,10 @@ def return_book(issue_id, user_id=None, fine_rate=None):
         if user_id:
             log_action(
                 user_id,
-                f"Book returned: IssueID {issue_id}, Fine: ₹{fine}"
+                f"Book returned: IssueID {issue_id}, Fine: Rs.{fine}"
             )
 
-        msg = f"Book returned successfully. Fine: ₹{fine:.2f}"
+        msg = f"Book returned successfully. Fine: Rs.{fine:.2f}"
         return True, msg, fine
     except Exception as e:
         return False, str(e), 0.0
