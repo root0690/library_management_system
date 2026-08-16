@@ -1,5 +1,6 @@
 """
 Login Window - Library Management System
+Supports online and offline login.
 """
 
 import customtkinter as ctk
@@ -27,7 +28,7 @@ def set_window_icon(window):
             img = Image.open(ICON_PNG_PATH)
             photo = ImageTk.PhotoImage(img)
             window.iconphoto(True, photo)
-            window._icon_photo = photo  # keep reference
+            window._icon_photo = photo
     except Exception:
         pass
 
@@ -40,12 +41,12 @@ class LoginWindow(ctk.CTk):
         ctk.set_default_color_theme(COLOR_THEME)
 
         self.title(f"{APP_NAME} - Login")
-        self.geometry("420x480")
+        self.geometry("420x500")
         self.resizable(False, False)
         set_window_icon(self)
 
         self.update_idletasks()
-        width, height = 420, 480
+        width, height = 420, 500
         x = (self.winfo_screenwidth() // 2) - (width // 2)
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f"{width}x{height}+{x}+{y}")
@@ -56,39 +57,40 @@ class LoginWindow(ctk.CTk):
         try:
             create_default_admin()
         except Exception:
-            pass  # server may be offline
+            pass
 
     def _build_ui(self):
         main_frame = ctk.CTkFrame(self, corner_radius=15)
         main_frame.pack(padx=30, pady=25, fill="both", expand=True)
 
-        # Logo
         if os.path.exists(LOGO_DISPLAY_PATH):
             try:
                 logo_img = ctk.CTkImage(
                     light_image=Image.open(LOGO_DISPLAY_PATH),
                     dark_image=Image.open(LOGO_DISPLAY_PATH),
-                    size=(100, 100)
+                    size=(100, 100),
                 )
-                logo_label = ctk.CTkLabel(main_frame, image=logo_img, text="")
-                logo_label.pack(pady=(18, 8))
+                ctk.CTkLabel(main_frame, image=logo_img, text="").pack(pady=(18, 8))
             except Exception:
                 pass
 
-        title_label = ctk.CTkLabel(
-            main_frame,
-            text=APP_NAME,
-            font=ctk.CTkFont(size=20, weight="bold")
-        )
-        title_label.pack(pady=(0, 4))
+        ctk.CTkLabel(
+            main_frame, text=APP_NAME, font=ctk.CTkFont(size=20, weight="bold")
+        ).pack(pady=(0, 4))
 
-        subtitle = ctk.CTkLabel(
+        ctk.CTkLabel(
             main_frame,
             text="Please login to continue",
             font=ctk.CTkFont(size=13),
-            text_color="gray"
-        )
-        subtitle.pack(pady=(0, 18))
+            text_color="gray",
+        ).pack(pady=(0, 8))
+
+        ctk.CTkLabel(
+            main_frame,
+            text="Offline login works when MySQL is not running",
+            font=ctk.CTkFont(size=11),
+            text_color="#888888",
+        ).pack(pady=(0, 14))
 
         ctk.CTkLabel(main_frame, text="Username", anchor="w").pack(padx=40, fill="x")
         self.username_entry = ctk.CTkEntry(
@@ -102,20 +104,23 @@ class LoginWindow(ctk.CTk):
         )
         self.password_entry.pack(padx=40, pady=(5, 20), fill="x")
 
-        login_btn = ctk.CTkButton(
-            main_frame, text="Login", height=40,
+        ctk.CTkButton(
+            main_frame,
+            text="Login",
+            height=40,
             font=ctk.CTkFont(size=14, weight="bold"),
-            command=self._on_login
-        )
-        login_btn.pack(padx=40, pady=(0, 8), fill="x")
+            command=self._on_login,
+        ).pack(padx=40, pady=(0, 8), fill="x")
 
-        exit_btn = ctk.CTkButton(
-            main_frame, text="Exit", height=36,
-            fg_color="transparent", border_width=1,
+        ctk.CTkButton(
+            main_frame,
+            text="Exit",
+            height=36,
+            fg_color="transparent",
+            border_width=1,
             text_color=("gray10", "gray90"),
-            command=self.destroy
-        )
-        exit_btn.pack(padx=40, pady=(0, 15), fill="x")
+            command=self.destroy,
+        ).pack(padx=40, pady=(0, 15), fill="x")
 
         self.bind("<Return>", lambda event: self._on_login())
         self.username_entry.focus()
@@ -125,29 +130,39 @@ class LoginWindow(ctk.CTk):
         password = self.password_entry.get()
 
         if not username or not password:
-            messagebox.showwarning("Input Error", "Please enter both username and password.")
-            return
-
-        try:
-            user = login(username, password)
-        except Exception as e:
-            messagebox.showerror(
-                "Server Offline",
-                "Cannot connect to MySQL server.\n\n"
-                "Please start MySQL and try again.\n\n"
-                f"Details: {e}"
+            messagebox.showwarning(
+                "Input Error", "Please enter both username and password."
             )
             return
+
+        user = login(username, password)
 
         if user:
             self.current_user = user
-            messagebox.showinfo(
-                "Login Successful",
-                f"Welcome, {user['Username']}!\nRole: {user['Role']}"
-            )
+            offline = user.get("Offline", False)
+            if offline:
+                messagebox.showinfo(
+                    "Login Successful (Offline Mode)",
+                    f"Welcome, {user['Username']}!\n"
+                    f"Role: {user['Role']}\n\n"
+                    f"MySQL server is offline.\n"
+                    f"You can use the dashboard, but database features are disabled.\n"
+                    f"Start MySQL and click Refresh Status to go online.",
+                )
+            else:
+                messagebox.showinfo(
+                    "Login Successful",
+                    f"Welcome, {user['Username']}!\nRole: {user['Role']}",
+                )
             self.destroy()
         else:
-            messagebox.showerror("Login Failed", "Invalid username or password.")
+            messagebox.showerror(
+                "Login Failed",
+                "Invalid username or password.\n\n"
+                "If MySQL is offline, use:\n"
+                "  Username: admin  (or root)\n"
+                "  Password: admin123",
+            )
             self.password_entry.delete(0, "end")
 
 

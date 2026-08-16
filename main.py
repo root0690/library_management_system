@@ -5,7 +5,6 @@ Library Management System - Main Entry Point
 import os
 import sys
 
-# Ensure project root is always on the path
 ROOT = os.path.dirname(os.path.abspath(__file__))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
@@ -23,27 +22,23 @@ def main():
 
     if DB_PASSWORD == "":
         print("\nWARNING: MySQL password is empty in config.py")
-        print("Open config.py and set DB_PASSWORD, then run again.")
-        # Still allow UI to open so user can see the app
-        print("Opening application in OFFLINE mode...\n")
-        server_online = False
+        print("Offline login is still available (admin / admin123).\n")
     else:
         print("\nChecking MySQL server...")
-        server_online = test_connection()
-        if server_online:
+        if test_connection():
             print("Server: ONLINE")
         else:
-            print("Server: OFFLINE")
-            print("Application will open, but database features will be disabled.")
-            print("Start MySQL and use 'Refresh Status' on the dashboard.\n")
+            print("Server: OFFLINE — offline login is available.")
 
     print("Opening Login window...\n")
     user = open_login()
 
     if user:
-        print(f"Logged in as: {user['Username']} ({user['Role']})")
-        # Re-check status after login
-        server_online = test_connection()
+        offline = user.get("Offline", False)
+        # Prefer actual connection check; offline login forces offline dashboard
+        server_online = False if offline else test_connection()
+        mode = "OFFLINE" if not server_online else "ONLINE"
+        print(f"Logged in as: {user['Username']} ({user['Role']}) — {mode}")
         app = DashboardWindow(user, server_online=server_online)
         app.mainloop()
     else:
