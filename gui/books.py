@@ -8,13 +8,21 @@ import sys, os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from gui.window_utils import set_window_icon
+
 from services.book_service import get_all_books, add_book, update_book, delete_book, get_book_by_id
 
 
+OFFLINE_MSG = "Server not running — MySQL is offline. Data cannot be loaded."
+
+
 class BooksWindow(ctk.CTkToplevel):
-    def __init__(self, parent, current_user):
+    def __init__(self, parent, current_user, server_online: bool = True):
         super().__init__(parent)
+
+        set_window_icon(self)
         self.current_user = current_user
+        self.server_online = server_online
         self.title("Book Management")
         self.geometry("900x550")
         self.resizable(True, True)
@@ -22,7 +30,28 @@ class BooksWindow(ctk.CTkToplevel):
         self._build_ui()
         self._refresh_table()
 
+    def _offline_guard(self):
+        if not self.server_online:
+            messagebox.showwarning(
+                "Server Offline",
+                "MySQL server is not running.\n\nStart the server and try again.",
+                parent=self,
+            )
+            return True
+        return False
+
     def _build_ui(self):
+        # Offline banner
+        if not self.server_online:
+            banner = ctk.CTkFrame(self, height=34, fg_color="#8B0000", corner_radius=0)
+            banner.pack(fill="x")
+            ctk.CTkLabel(
+                banner,
+                text="SERVER NOT RUNNING — Book data cannot be loaded. UI is still available.",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color="white",
+            ).pack(pady=6)
+
         # Search bar
         top = ctk.CTkFrame(self)
         top.pack(fill="x", padx=15, pady=10)
@@ -65,23 +94,37 @@ class BooksWindow(ctk.CTkToplevel):
     def _refresh_table(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
-        search = self.search_entry.get()
-        books = get_all_books(search if search else None)
-        if books:
-            for b in books:
-                self.tree.insert("", "end", values=(
-                    b["BookID"], b["ISBN"] or "", b["Title"], b["Author"],
-                    b["Category"] or "", b["Quantity"], b["AvailableQuantity"]
-                ))
+
+        if not self.server_online:
+            self.tree.insert("", "end", values=("", "", OFFLINE_MSG, "", "", "", ""))
+            return
+
+        try:
+            search = self.search_entry.get()
+            books = get_all_books(search if search else None)
+            if books:
+                for b in books:
+                    self.tree.insert("", "end", values=(
+                        b["BookID"], b["ISBN"] or "", b["Title"], b["Author"],
+                        b["Category"] or "", b["Quantity"], b["AvailableQuantity"]
+                    ))
+        except Exception as e:
+            self.tree.insert("", "end", values=("", "", f"Error loading data: {e}", "", "", "", ""))
 
     def _get_selected_id(self):
         selected = self.tree.selection()
         if not selected:
             messagebox.showwarning("No Selection", "Please select a book first.", parent=self)
             return None
-        return self.tree.item(selected[0])["values"][0]
+        values = self.tree.item(selected[0])["values"]
+        if not values or values[0] in ("", None):
+            messagebox.showwarning("No Selection", "Please select a valid book row.", parent=self)
+            return None
+        return values[0]
 
     def _add_book(self):
+        if self._offline_guard():
+            return
         dialog = BookFormDialog(self, "Add New Book")
         self.wait_window(dialog)
         if dialog.result:
@@ -93,6 +136,8 @@ class BooksWindow(ctk.CTkToplevel):
                 messagebox.showerror("Error", msg, parent=self)
 
     def _edit_book(self):
+        if self._offline_guard():
+            return
         book_id = self._get_selected_id()
         if not book_id:
             return
@@ -110,6 +155,8 @@ class BooksWindow(ctk.CTkToplevel):
                 messagebox.showerror("Error", msg, parent=self)
 
     def _delete_book(self):
+        if self._offline_guard():
+            return
         book_id = self._get_selected_id()
         if not book_id:
             return
@@ -125,6 +172,8 @@ class BooksWindow(ctk.CTkToplevel):
 class BookFormDialog(ctk.CTkToplevel):
     def __init__(self, parent, title, book=None):
         super().__init__(parent)
+
+        set_window_icon(self)
         self.title(title)
         self.geometry("400x420")
         self.resizable(False, False)

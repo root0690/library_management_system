@@ -8,20 +8,48 @@ import sys, os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from gui.window_utils import set_window_icon
+
 from services.student_service import get_all_students, add_student, update_student, delete_student, get_student_by_id
 
 
+OFFLINE_MSG = "Server not running — MySQL is offline. Data cannot be loaded."
+
+
 class StudentsWindow(ctk.CTkToplevel):
-    def __init__(self, parent, current_user):
+    def __init__(self, parent, current_user, server_online: bool = True):
         super().__init__(parent)
+
+        set_window_icon(self)
         self.current_user = current_user
+        self.server_online = server_online
         self.title("Student Management")
         self.geometry("850x520")
 
         self._build_ui()
         self._refresh_table()
 
+    def _offline_guard(self):
+        if not self.server_online:
+            messagebox.showwarning(
+                "Server Offline",
+                "MySQL server is not running.\n\nStart the server and try again.",
+                parent=self,
+            )
+            return True
+        return False
+
     def _build_ui(self):
+        if not self.server_online:
+            banner = ctk.CTkFrame(self, height=34, fg_color="#8B0000", corner_radius=0)
+            banner.pack(fill="x")
+            ctk.CTkLabel(
+                banner,
+                text="SERVER NOT RUNNING — Student data cannot be loaded. UI is still available.",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color="white",
+            ).pack(pady=6)
+
         top = ctk.CTkFrame(self)
         top.pack(fill="x", padx=15, pady=10)
 
@@ -58,23 +86,37 @@ class StudentsWindow(ctk.CTkToplevel):
     def _refresh_table(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
-        search = self.search_entry.get()
-        students = get_all_students(search if search else None)
-        if students:
-            for s in students:
-                self.tree.insert("", "end", values=(
-                    s["StudentID"], s["Name"], s["Department"] or "",
-                    s["Semester"] or "", s["Phone"] or ""
-                ))
+
+        if not self.server_online:
+            self.tree.insert("", "end", values=("", OFFLINE_MSG, "", "", ""))
+            return
+
+        try:
+            search = self.search_entry.get()
+            students = get_all_students(search if search else None)
+            if students:
+                for s in students:
+                    self.tree.insert("", "end", values=(
+                        s["StudentID"], s["Name"], s["Department"] or "",
+                        s["Semester"] or "", s["Phone"] or ""
+                    ))
+        except Exception as e:
+            self.tree.insert("", "end", values=("", f"Error loading data: {e}", "", "", ""))
 
     def _get_selected_id(self):
         selected = self.tree.selection()
         if not selected:
             messagebox.showwarning("No Selection", "Please select a student first.", parent=self)
             return None
-        return self.tree.item(selected[0])["values"][0]
+        values = self.tree.item(selected[0])["values"]
+        if not values or values[0] in ("", None):
+            messagebox.showwarning("No Selection", "Please select a valid student row.", parent=self)
+            return None
+        return values[0]
 
     def _add(self):
+        if self._offline_guard():
+            return
         dialog = StudentFormDialog(self, "Add New Student")
         self.wait_window(dialog)
         if dialog.result:
@@ -86,6 +128,8 @@ class StudentsWindow(ctk.CTkToplevel):
                 messagebox.showerror("Error", msg, parent=self)
 
     def _edit(self):
+        if self._offline_guard():
+            return
         sid = self._get_selected_id()
         if not sid:
             return
@@ -103,6 +147,8 @@ class StudentsWindow(ctk.CTkToplevel):
                 messagebox.showerror("Error", msg, parent=self)
 
     def _delete(self):
+        if self._offline_guard():
+            return
         sid = self._get_selected_id()
         if not sid:
             return
@@ -118,6 +164,8 @@ class StudentsWindow(ctk.CTkToplevel):
 class StudentFormDialog(ctk.CTkToplevel):
     def __init__(self, parent, title, student=None):
         super().__init__(parent)
+
+        set_window_icon(self)
         self.title(title)
         self.geometry("380x380")
         self.resizable(False, False)

@@ -9,6 +9,8 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from gui.window_utils import set_window_icon
+
 from config import (
     APP_NAME, APP_VERSION, DEFAULT_FINE_RATE, DEFAULT_LOAN_DAYS,
     BACKUPS_DIR, DB_HOST, DB_NAME, DB_USER
@@ -18,16 +20,39 @@ from database import execute_query
 
 
 class SettingsWindow(ctk.CTkToplevel):
-    def __init__(self, parent, current_user):
+    def __init__(self, parent, current_user, server_online: bool = True):
         super().__init__(parent)
+
+        set_window_icon(self)
         self.current_user = current_user
+        self.server_online = server_online
         self.title("Settings")
-        self.geometry("480x560")
+        self.geometry("480x600")
         self.resizable(False, False)
         self.grab_set()
         self._build_ui()
 
+    def _offline_guard(self):
+        if not self.server_online:
+            messagebox.showwarning(
+                "Server Offline",
+                "MySQL server is not running.\n\nStart the server and try again.",
+                parent=self,
+            )
+            return True
+        return False
+
     def _build_ui(self):
+        if not self.server_online:
+            banner = ctk.CTkFrame(self, height=34, fg_color="#8B0000", corner_radius=0)
+            banner.pack(fill="x")
+            ctk.CTkLabel(
+                banner,
+                text="SERVER NOT RUNNING — Database actions are disabled.",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color="white",
+            ).pack(pady=6)
+
         frame = ctk.CTkFrame(self)
         frame.pack(padx=20, pady=20, fill="both", expand=True)
 
@@ -63,9 +88,11 @@ class SettingsWindow(ctk.CTkToplevel):
         # System info
         ctk.CTkLabel(frame, text="System Information", font=ctk.CTkFont(size=15, weight="bold")).pack(pady=(18, 8))
 
+        server_status = "Online" if self.server_online else "Offline"
         info = (
             f"Application : {APP_NAME} v{APP_VERSION}\n"
             f"Database    : {DB_NAME} @ {DB_HOST}\n"
+            f"Server      : {server_status}\n"
             f"User        : {self.current_user['Username']} ({self.current_user['Role']})\n"
             f"Loan Period : {DEFAULT_LOAN_DAYS} days\n"
             f"Fine Rate   : Rs.{DEFAULT_FINE_RATE} per day"
@@ -77,10 +104,12 @@ class SettingsWindow(ctk.CTkToplevel):
 
     def _open_users(self):
         from gui.users import UsersWindow
-        win = UsersWindow(self, self.current_user)
+        win = UsersWindow(self, self.current_user, server_online=self.server_online)
         win.grab_set()
 
     def _create_backup(self):
+        if self._offline_guard():
+            return
         try:
             os.makedirs(BACKUPS_DIR, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

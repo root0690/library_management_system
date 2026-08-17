@@ -8,22 +8,45 @@ import sys, os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from gui.window_utils import set_window_icon
 from services.transaction_service import issue_book
 from utils.date_utils import today_str, calculate_due_date
 from config import DEFAULT_LOAN_DAYS, MAX_BOOKS_PER_STUDENT
 
 
 class IssueBookWindow(ctk.CTkToplevel):
-    def __init__(self, parent, current_user):
+    def __init__(self, parent, current_user, server_online: bool = True):
         super().__init__(parent)
+        set_window_icon(self)
         self.current_user = current_user
+        self.server_online = server_online
         self.title("Issue Book")
-        self.geometry("440x420")
+        self.geometry("440x460")
         self.resizable(False, False)
         self.grab_set()
         self._build_ui()
 
+    def _offline_guard(self):
+        if not self.server_online:
+            messagebox.showwarning(
+                "Server Offline",
+                "MySQL server is not running.\n\nStart the server and try again.",
+                parent=self,
+            )
+            return True
+        return False
+
     def _build_ui(self):
+        if not self.server_online:
+            banner = ctk.CTkFrame(self, height=34, fg_color="#8B0000", corner_radius=0)
+            banner.pack(fill="x")
+            ctk.CTkLabel(
+                banner,
+                text="SERVER NOT RUNNING — Issuing is disabled until MySQL is online.",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color="white",
+            ).pack(pady=6)
+
         frame = ctk.CTkFrame(self)
         frame.pack(padx=25, pady=25, fill="both", expand=True)
 
@@ -67,6 +90,8 @@ class IssueBookWindow(ctk.CTkToplevel):
         ).pack(fill="x", padx=30, pady=(5, 15))
 
     def _issue(self):
+        if self._offline_guard():
+            return
         sid = self.student_entry.get().strip()
         bid = self.book_entry.get().strip()
 

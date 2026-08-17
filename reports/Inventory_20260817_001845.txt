@@ -1,0 +1,5 @@
+Library Management System - Inventory
+Generated: 2026-08-17 00:18:45
+============================================================
+
+1	Harry Potter	J. K. Rowling	1	1

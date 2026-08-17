@@ -8,15 +8,23 @@ import sys, os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from gui.window_utils import set_window_icon
+
 from services.user_service import (
     get_all_users, add_user, change_user_password, delete_user, change_own_password
 )
 
 
+OFFLINE_MSG = "Server not running — MySQL is offline. Data cannot be loaded."
+
+
 class UsersWindow(ctk.CTkToplevel):
-    def __init__(self, parent, current_user):
+    def __init__(self, parent, current_user, server_online: bool = True):
         super().__init__(parent)
+
+        set_window_icon(self)
         self.current_user = current_user
+        self.server_online = server_online
         self.title("User Management")
         self.geometry("750x520")
         self.grab_set()
@@ -24,7 +32,27 @@ class UsersWindow(ctk.CTkToplevel):
         self._build_ui()
         self._refresh_table()
 
+    def _offline_guard(self):
+        if not self.server_online:
+            messagebox.showwarning(
+                "Server Offline",
+                "MySQL server is not running.\n\nStart the server and try again.",
+                parent=self,
+            )
+            return True
+        return False
+
     def _build_ui(self):
+        if not self.server_online:
+            banner = ctk.CTkFrame(self, height=34, fg_color="#8B0000", corner_radius=0)
+            banner.pack(fill="x")
+            ctk.CTkLabel(
+                banner,
+                text="SERVER NOT RUNNING — User data cannot be loaded. UI is still available.",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color="white",
+            ).pack(pady=6)
+
         # Top buttons
         top = ctk.CTkFrame(self)
         top.pack(fill="x", padx=15, pady=10)
@@ -64,20 +92,34 @@ class UsersWindow(ctk.CTkToplevel):
     def _refresh_table(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
-        users = get_all_users()
-        for u in users:
-            self.tree.insert("", "end", values=(
-                u["UserID"], u["Username"], u["Role"], str(u["CreatedAt"])
-            ))
+
+        if not self.server_online:
+            self.tree.insert("", "end", values=("", OFFLINE_MSG, "", ""))
+            return
+
+        try:
+            users = get_all_users()
+            for u in users:
+                self.tree.insert("", "end", values=(
+                    u["UserID"], u["Username"], u["Role"], str(u["CreatedAt"])
+                ))
+        except Exception as e:
+            self.tree.insert("", "end", values=("", f"Error loading data: {e}", "", ""))
 
     def _get_selected_id(self):
         selected = self.tree.selection()
         if not selected:
             messagebox.showwarning("No Selection", "Please select a user first.", parent=self)
             return None
-        return int(self.tree.item(selected[0])["values"][0])
+        values = self.tree.item(selected[0])["values"]
+        if not values or values[0] in ("", None):
+            messagebox.showwarning("No Selection", "Please select a valid user row.", parent=self)
+            return None
+        return int(values[0])
 
     def _add_user(self):
+        if self._offline_guard():
+            return
         dialog = AddUserDialog(self)
         self.wait_window(dialog)
         if dialog.result:
@@ -94,6 +136,8 @@ class UsersWindow(ctk.CTkToplevel):
                 messagebox.showerror("Error", msg, parent=self)
 
     def _change_password(self):
+        if self._offline_guard():
+            return
         user_id = self._get_selected_id()
         if not user_id:
             return
@@ -111,6 +155,8 @@ class UsersWindow(ctk.CTkToplevel):
                 messagebox.showerror("Error", msg, parent=self)
 
     def _delete_user(self):
+        if self._offline_guard():
+            return
         user_id = self._get_selected_id()
         if not user_id:
             return
@@ -124,6 +170,8 @@ class UsersWindow(ctk.CTkToplevel):
             messagebox.showerror("Error", msg, parent=self)
 
     def _change_own_password(self):
+        if self._offline_guard():
+            return
         dialog = ChangeOwnPasswordDialog(self)
         self.wait_window(dialog)
         if dialog.result:
@@ -141,6 +189,8 @@ class UsersWindow(ctk.CTkToplevel):
 class AddUserDialog(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
+
+        set_window_icon(self)
         self.title("Add New User")
         self.geometry("380x360")
         self.resizable(False, False)
@@ -178,6 +228,8 @@ class AddUserDialog(ctk.CTkToplevel):
 class ChangePasswordDialog(ctk.CTkToplevel):
     def __init__(self, parent, title="Change Password"):
         super().__init__(parent)
+
+        set_window_icon(self)
         self.title(title)
         self.geometry("360x220")
         self.resizable(False, False)
@@ -201,6 +253,8 @@ class ChangePasswordDialog(ctk.CTkToplevel):
 class ChangeOwnPasswordDialog(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
+
+        set_window_icon(self)
         self.title("Change My Password")
         self.geometry("360x300")
         self.resizable(False, False)

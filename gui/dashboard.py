@@ -192,16 +192,6 @@ class DashboardWindow(ctk.CTk):
             val_label.pack(pady=(15, 0))
             ctk.CTkLabel(card, text=title, font=ctk.CTkFont(size=11)).pack()
 
-    def _require_server(self):
-        if not self.server_online:
-            messagebox.showwarning(
-                "Server Offline",
-                "MySQL server is not running.\n\nStart MySQL and click 'Refresh Status'.",
-                parent=self
-            )
-            return False
-        return True
-
     def _refresh_status(self):
         online = test_connection()
         self.server_online = online
@@ -209,77 +199,64 @@ class DashboardWindow(ctk.CTk):
             self.banner.pack_forget()
             messagebox.showinfo("Server Status", "Server is Online.", parent=self)
         else:
-            self.banner.pack(fill="x", after=self.winfo_children()[0] if self.winfo_children() else None)
-            # Re-pack banner near top
-            children = self.winfo_children()
-            if self.banner not in children:
-                self.banner.pack(fill="x")
+            # Ensure banner is visible near the top
+            try:
+                self.banner.pack_forget()
+            except Exception:
+                pass
+            self.banner.pack(fill="x")
             messagebox.showwarning("Server Status", "Server is still Offline.", parent=self)
         self._load_stats()
 
+    # ── Open windows even when offline; each window shows its own offline UI ──
+
     def open_books(self):
-        if not self._require_server():
-            return
         from gui.books import BooksWindow
-        win = BooksWindow(self, self.current_user)
+        win = BooksWindow(self, self.current_user, server_online=self.server_online)
         win.grab_set()
 
     def open_students(self):
-        if not self._require_server():
-            return
         from gui.students import StudentsWindow
-        win = StudentsWindow(self, self.current_user)
+        win = StudentsWindow(self, self.current_user, server_online=self.server_online)
         win.grab_set()
 
     def open_issue(self):
-        if not self._require_server():
-            return
         from gui.issue_book import IssueBookWindow
-        win = IssueBookWindow(self, self.current_user)
+        win = IssueBookWindow(self, self.current_user, server_online=self.server_online)
         win.grab_set()
 
     def open_return(self):
-        if not self._require_server():
-            return
         from gui.return_book import ReturnBookWindow
-        win = ReturnBookWindow(self, self.current_user)
+        win = ReturnBookWindow(self, self.current_user, server_online=self.server_online)
         win.grab_set()
 
     def open_reports(self):
-        if not self._require_server():
-            return
         from gui.reports import ReportsWindow
-        win = ReportsWindow(self, self.current_user)
+        win = ReportsWindow(self, self.current_user, server_online=self.server_online)
         win.grab_set()
 
     def open_settings(self):
         if self.current_user["Role"] != "Administrator":
             messagebox.showwarning("Access Denied", "Only Administrator can access Settings.")
             return
-        if not self._require_server():
-            return
         from gui.settings import SettingsWindow
-        win = SettingsWindow(self, self.current_user)
+        win = SettingsWindow(self, self.current_user, server_online=self.server_online)
         win.grab_set()
 
     def open_audit_logs(self):
         if self.current_user["Role"] != "Administrator":
             messagebox.showwarning("Access Denied", "Only Administrator can view audit logs.")
             return
-        if not self._require_server():
-            return
         from gui.audit_logs import AuditLogsWindow
-        win = AuditLogsWindow(self, self.current_user)
+        win = AuditLogsWindow(self, self.current_user, server_online=self.server_online)
         win.grab_set()
 
     def open_users(self):
         if self.current_user["Role"] != "Administrator":
             messagebox.showwarning("Access Denied", "Only Administrator can manage users.")
             return
-        if not self._require_server():
-            return
         from gui.users import UsersWindow
-        win = UsersWindow(self, self.current_user)
+        win = UsersWindow(self, self.current_user, server_online=self.server_online)
         win.grab_set()
 
     def _logout(self):

@@ -9,13 +9,22 @@ import sys, os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from gui.window_utils import set_window_icon
+
 from services.audit_service import get_audit_logs, get_audit_log_count
+from services.report_service import export_report_to_pdf
+
+
+OFFLINE_MSG = "Server not running — MySQL is offline. Data cannot be loaded."
 
 
 class AuditLogsWindow(ctk.CTkToplevel):
-    def __init__(self, parent, current_user):
+    def __init__(self, parent, current_user, server_online: bool = True):
         super().__init__(parent)
+
+        set_window_icon(self)
         self.current_user = current_user
+        self.server_online = server_online
         self.title("Audit Logs (Read Only)")
         self.geometry("900x560")
         self.grab_set()
@@ -23,7 +32,27 @@ class AuditLogsWindow(ctk.CTkToplevel):
         self._build_ui()
         self._refresh()
 
+    def _offline_guard(self):
+        if not self.server_online:
+            messagebox.showwarning(
+                "Server Offline",
+                "MySQL server is not running.\n\nStart the server and try again.",
+                parent=self,
+            )
+            return True
+        return False
+
     def _build_ui(self):
+        if not self.server_online:
+            banner = ctk.CTkFrame(self, height=34, fg_color="#8B0000", corner_radius=0)
+            banner.pack(fill="x")
+            ctk.CTkLabel(
+                banner,
+                text="SERVER NOT RUNNING — Audit logs cannot be loaded. UI is still available.",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color="white",
+            ).pack(pady=6)
+
         top = ctk.CTkFrame(self)
         top.pack(fill="x", padx=15, pady=10)
 
@@ -85,22 +114,72 @@ class AuditLogsWindow(ctk.CTkToplevel):
             font=ctk.CTkFont(size=11)
         ).pack(side="left")
 
+        ctk.CTkButton(bottom, text="Export to PDF", command=self._export_pdf).pack(side="right", padx=(0, 8))
         ctk.CTkButton(bottom, text="Close", command=self.destroy).pack(side="right")
 
     def _refresh(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
 
-        search = self.search_entry.get()
-        logs = get_audit_logs(limit=500, search=search if search else None)
-        total = get_audit_log_count()
-        self.count_label.configure(text=f"(Total in database: {total})")
+        if not self.server_online:
+            self.count_label.configure(text="(Server offline)")
+            self.tree.insert("", "end", values=("", "", "", OFFLINE_MSG, ""))
+            self._current_logs = []
+            return
 
-        for log in logs:
-            self.tree.insert("", "end", values=(
+        try:
+            search = self.search_entry.get()
+            logs = get_audit_logs(limit=500, search=search if search else None)
+            total = get_audit_log_count()
+            self.count_label.configure(text=f"(Total in database: {total})")
+
+            self._current_logs = logs  # keep for export
+
+            for log in logs:
+                self.tree.insert("", "end", values=(
+                    log.get("LogID", ""),
+                    log.get("UserID", "") if log.get("UserID") is not None else "",
+                    log.get("Username") or "(unknown)",
+                    log.get("Action", ""),
+                    str(log.get("Timestamp", ""))
+                ))
+        except Exception as e:
+            self.count_label.configure(text="(Error)")
+            self.tree.insert("", "end", values=("", "", "", f"Error loading data: {e}", ""))
+            self._current_logs = []
+
+    def _export_pdf(self):
+        if self._offline_guard():
+            return
+        logs = getattr(self, "_current_logs", None)
+        if logs is None:
+            logs = get_audit_logs(limit=500)
+
+        headers = ["Log ID", "User ID", "Username", "Action", "Timestamp"]
+        rows = [
+            [
                 log.get("LogID", ""),
                 log.get("UserID", "") if log.get("UserID") is not None else "",
                 log.get("Username") or "(unknown)",
                 log.get("Action", ""),
-                str(log.get("Timestamp", ""))
-            ))
+                str(log.get("Timestamp", "")),
+            ]
+            for log in logs
+        ]
+
+        search = self.search_entry.get().strip()
+        subtitle = f"Entries shown: {len(rows)}"
+        if search:
+            subtitle += f'  |  Filter: "{search}"'
+
+        try:
+            path = export_report_to_pdf(
+                "Audit_Logs",
+                headers,
+                rows,
+                subtitle=subtitle,
+                landscape_mode=True,
+            )
+            messagebox.showinfo("Exported", f"PDF saved to:\n{path}", parent=self)
+        except Exception as e:
+            messagebox.showerror("Export Failed", str(e), parent=self)

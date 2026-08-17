@@ -8,22 +8,50 @@ import sys, os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from gui.window_utils import set_window_icon
+
 from services.transaction_service import get_active_issues, return_book, get_issue_by_id
 from services.fine_service import calculate_fine, get_overdue_days
 from utils.date_utils import today_str
 
 
+OFFLINE_MSG = "Server not running — MySQL is offline. Data cannot be loaded."
+
+
 class ReturnBookWindow(ctk.CTkToplevel):
-    def __init__(self, parent, current_user):
+    def __init__(self, parent, current_user, server_online: bool = True):
         super().__init__(parent)
+
+        set_window_icon(self)
         self.current_user = current_user
+        self.server_online = server_online
         self.title("Return Book")
-        self.geometry("800x500")
+        self.geometry("800x520")
         self.grab_set()
         self._build_ui()
         self._refresh()
 
+    def _offline_guard(self):
+        if not self.server_online:
+            messagebox.showwarning(
+                "Server Offline",
+                "MySQL server is not running.\n\nStart the server and try again.",
+                parent=self,
+            )
+            return True
+        return False
+
     def _build_ui(self):
+        if not self.server_online:
+            banner = ctk.CTkFrame(self, height=34, fg_color="#8B0000", corner_radius=0)
+            banner.pack(fill="x")
+            ctk.CTkLabel(
+                banner,
+                text="SERVER NOT RUNNING — Issued books cannot be loaded. UI is still available.",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color="white",
+            ).pack(pady=6)
+
         top = ctk.CTkFrame(self)
         top.pack(fill="x", padx=15, pady=10)
 
@@ -65,6 +93,11 @@ class ReturnBookWindow(ctk.CTkToplevel):
     def _refresh(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
+
+        if not self.server_online:
+            self.tree.insert("", "end", values=("", OFFLINE_MSG, "", "", "", ""))
+            return
+
         try:
             search = self.search_entry.get()
             issues = get_active_issues(search if search else None)
@@ -83,9 +116,11 @@ class ReturnBookWindow(ctk.CTkToplevel):
                         overdue
                     ))
         except Exception as e:
-            messagebox.showerror("Error", f"Could not load issued books:\n{e}", parent=self)
+            self.tree.insert("", "end", values=("", f"Error loading data: {e}", "", "", "", ""))
 
     def _return(self):
+        if self._offline_guard():
+            return
         selected = self.tree.selection()
         if not selected:
             messagebox.showwarning("No Selection", "Please select a transaction first.", parent=self)
@@ -93,6 +128,9 @@ class ReturnBookWindow(ctk.CTkToplevel):
 
         try:
             issue_id = self.tree.item(selected[0])["values"][0]
+            if issue_id in ("", None):
+                messagebox.showwarning("No Selection", "Please select a valid transaction row.", parent=self)
+                return
             issue_id = int(issue_id)
         except Exception:
             messagebox.showerror("Error", "Invalid Issue ID selected.", parent=self)
